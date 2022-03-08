@@ -1,0 +1,12 @@
+{
+  "env": {
+    "PORT": 3000,
+    "MONGO_ATLES_PASS": "m001-mongodb-basics",
+    "MONGO_ATLES_DB": "myFirstDatabase",
+    "MONGO_ATLES_USER": "m001-student",
+    "MONGO_ATLES_SERVER": "sandbox.1uwxp.mongodb.net",
+    "JWT_KEY": "g4asdfg65afd4gds",
+    "SALT": "f5g4h4sfdgh56shds4g54",
+    "AUTHORITY": "http://localhost:3000"
+  }
+}
