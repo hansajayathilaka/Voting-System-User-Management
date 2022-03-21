@@ -6,14 +6,6 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/users');
 
 
-// exports.validate = (req, res, next) => {
-//     return res.status(200).json({
-//         status: true,
-//         message: "Auth Success.",
-//         error: null,
-//     });
-// }
-
 exports.get_hash = (req, res, next) => {
     const userData = req.userData;
     User.find({_id: userData._id})
@@ -98,40 +90,36 @@ exports.get_user = (req, res, next) => {
 }
 
 exports.signup_user = (req, res, next) => {
-    User.find({id_number: req.body.id_number})
+    User.find({email: req.body.email})
         .exec()
         .then(doc => {
             if (doc.length !== 0) {
                 res.status(409).json({
                     status: false,
-                    message: "Please check the id_number and email.",
+                    message: "Please check the email.",
                     error: "User exists.",
                 });
             } else {
-                const user = new User({
-                    _id: new mongoose.Types.ObjectId(),
-                    email: req.body.email,
-                    first_name: req.body.first_name,
-                    last_name: req.body.last_name,
-                    address: req.body.address,
-                    id_number: req.body.id_number,
-                    phone: req.body.phone,
-                    gender: req.body.gender,
-                    pro_pic: req.files[0].filename,
-                });
+                let user;
+                try {
+                    user = new User({
+                        _id: new mongoose.Types.ObjectId(req.body._id),
+                        email: req.body.email,
+                        fullname: req.body.fullname,
+                    });
+                } catch (err) {
+                    return res.status(400).json({
+                        status: false,
+                        message: "Invalid _id.",
+                        error: err,
+                    });
+                }
                 user.save()
                     .then(doc => {
-                        // delete doc.password;
                         const data = {
                             _id: doc._id,
                             email: doc.email,
-                            first_name: doc.first_name,
-                            last_name: doc.last_name,
-                            address: doc.address,
-                            id_number: doc.id_number,
-                            phone: doc.phone,
-                            gender: doc.gender,
-                            pro_pic: process.env.AUTHORITY + "/media/" + doc.pro_pic,
+                            fullname: doc.fullname,
                         };
                         res.status(201).json({
                             status: true,
@@ -145,60 +133,10 @@ exports.signup_user = (req, res, next) => {
                         res.status(500).json({
                             status: false,
                             user: null,
-                            message: "",
+                            message: "Example ID : " + new mongoose.Types.ObjectId(),
                             error: err
                         });
                     });
-                // bcrypt.hash(req.body.password, 10, (err, hash) => {
-                //     if (!err) {
-                //         const user = new User({
-                //             _id: new mongoose.Types.ObjectId(),
-                //             email: req.body.email,
-                //             password: hash,
-                //             first_name: req.body.first_name,
-                //             last_name: req.body.last_name,
-                //             address: req.body.address,
-                //             id_number: req.body.id_number,
-                //             phone: req.body.phone,
-                //             gender: req.body.gender,
-                //             pro_pic: req.files[0].filename,
-                //         });
-                //         user.save()
-                //             .then(doc => {
-                //                 console.log(doc);
-                //                 delete doc.password;
-                //                 const data = {
-                //                     _id: doc._id,
-                //                     email: doc.email,
-                //                     first_name: doc.first_name,
-                //                     last_name: doc.last_name,
-                //                     address: doc.address,
-                //                     id_number: doc.id_number,
-                //                     phone: doc.phone,
-                //                     gender: doc.gender,
-                //                     pro_pic: process.env.AUTHORITY + "/media/" + doc.pro_pic,
-                //                 };
-                //                 res.status(201).json({
-                //                     user: data,
-                //                     message: '',
-                //                     error: null,
-                //                 });
-                //             })
-                //             .catch(err => {
-                //                 console.log(err);
-                //                 res.status(500).json({
-                //                     message: "",
-                //                     error: err
-                //                 });
-                //             });
-                //     } else {
-                //         console.log(err);
-                //         res.status(500).json({
-                //             message: "",
-                //             error: err
-                //         });
-                //     }
-                // });
             }
         })
         .catch(err => {
@@ -213,14 +151,10 @@ exports.signup_user = (req, res, next) => {
 };
 
 exports.update_user = (req, res, next) => {
-    const _id = req.body.id;
+    const _id = req.body._id;
     const user = new User({
         email: req.body.email,
-        first_name: req.body.first_name,
-        last_name: req.body.last_name,
-        address: req.body.address,
-        phone: req.body.phone,
-        gender: req.body.gender,
+        fullname: req.body.fullname,
     });
     User.findByIdAndUpdate(_id, user,(err, result) => {
         if (err) {
@@ -262,67 +196,3 @@ exports.delete_user = (req, res, next) => {
             });
         });
 };
-
-// exports.login_user = (req, res, next) => {
-//     User.find({email: req.body.email})
-//         .exec()
-//         .then(doc => {
-//             if (doc.length === 0) {
-//                 res.status(401).json({
-//                     message: '',
-//                     error: "Auth Failed."
-//                 });
-//             }
-//             // Compare Password
-//             bcrypt.compare(req.body.password, doc[0].password, (err, result) => {
-//                 if (err) {
-//                     console.log(err);
-//                     res.status(500).json({
-//                         message: "",
-//                         error: err
-//                     });
-//                 }
-//                 // Check auth
-//                 if (result) {
-//                     // Generate JWT
-//                     const token = jwt.sign(
-//                         {
-//                             email: doc[0].email,
-//                             _id: doc[0]._id
-//                         },
-//                         process.env.JWT_KEY,
-//                         {
-//                             expiresIn: "2h"
-//                         }
-//                     );
-//                     res.status(200).json({
-//                         message: "Auth Successful.",
-//                         user: {
-//                             id: doc[0]._id,
-//                             email: doc[0].email,
-//                             first_name: doc[0].first_name,
-//                             last_name: doc[0].last_name,
-//                             address: doc[0].address,
-//                             phone: doc[0].phone,
-//                             gender: doc[0].gender,
-//                             pro_pic: process.env.AUTHORITY + "/media/" + doc[0].pro_pic,
-//                         },
-//                         token: token,
-//                         error: null,
-//                     });
-//                 } else {
-//                     res.status(401).json({
-//                         message: '',
-//                         error: "Auth Failed."
-//                     });
-//                 }
-//             });
-//         })
-//         .catch(err => {
-//             console.log(err);
-//             res.status(500).json({
-//                 message: "",
-//                 error: err,
-//             });
-//         });
-// };
