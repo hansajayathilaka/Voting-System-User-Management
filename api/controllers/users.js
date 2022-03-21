@@ -8,14 +8,14 @@ const User = require('../models/users');
 
 exports.get_hash = (req, res, next) => {
     const userData = req.userData;
-    User.find({_id: userData._id})
+    User.find({id: userData.id})
         .exec()
         .then(doc => {
             if (doc.length > 0) {
                 let salt;
                 if (doc[0].salt == null) {
                     salt = crypto.randomBytes(16).toString();
-                    User.findByIdAndUpdate(userData._id, {salt}, (err, result) => {
+                    User.findByIdAndUpdate(doc[0]._id, {salt}, (err, result) => {
                         if (err) {
                             console.log("Salt is not saved.");
                             console.log(err);
@@ -28,18 +28,17 @@ exports.get_hash = (req, res, next) => {
                 }
 
                 // Implementing pbkdf2 with all its parameters
-                crypto.pbkdf2(userData._id, salt + process.env.SALT, 10000, 64, 'sha512', (err, derivedKey) => {
+                crypto.pbkdf2(String(doc[0]._id), salt + process.env.SALT, 10000, 64, 'sha512', (err, derivedKey) => {
                     if (err) {
-                        res.status(500).json({
+                        return res.status(500).json({
                             status: false,
                             hash: null,
                             message: "",
                             error: err,
                         });
-                        return;
                     }
 
-                    res.status(200).json({
+                    return res.status(200).json({
                         status: true,
                         hash: "0x" + derivedKey.toString('hex'),
                         message: "",
@@ -48,7 +47,7 @@ exports.get_hash = (req, res, next) => {
                 });
 
             } else {
-                res.status(500).json({
+                return res.status(500).json({
                     status: false,
                     hash: null,
                     message: "",
@@ -64,13 +63,9 @@ exports.get_user = (req, res, next) => {
         .then((doc) => {
             const user = {
                 _id: doc._id,
+                id: doc.id,
                 email: doc.email,
-                first_name: doc.first_name,
-                last_name: doc.last_name,
-                address: doc.address,
-                id_number: doc.id_number,
-                phone: doc.phone,
-                gender: doc.gender,
+                firstname: doc.firstname,
             };
             return res.status(200).json({
                 status: true,
@@ -90,27 +85,28 @@ exports.get_user = (req, res, next) => {
 }
 
 exports.signup_user = (req, res, next) => {
-    User.find({email: req.body.email})
+    User.find({id: req.body.id})
         .exec()
-        .then(doc => {
-            if (doc.length !== 0) {
-                res.status(409).json({
+        .then(user => {
+            if (user.length >= 1) {
+                return res.status(409).json({
                     status: false,
-                    message: "Please check the email.",
-                    error: "User exists.",
+                    message: '',
+                    error: 'User already exists.'
                 });
             } else {
                 let user;
                 try {
                     user = new User({
-                        _id: new mongoose.Types.ObjectId(req.body._id),
+                        _id: new mongoose.Types.ObjectId(),
+                        id: req.body.id,
                         email: req.body.email,
                         fullname: req.body.fullname,
                     });
                 } catch (err) {
                     return res.status(400).json({
                         status: false,
-                        message: "Invalid _id.",
+                        message: "Error while creating user.",
                         error: err,
                     });
                 }
@@ -118,6 +114,7 @@ exports.signup_user = (req, res, next) => {
                     .then(doc => {
                         const data = {
                             _id: doc._id,
+                            id: doc.id,
                             email: doc.email,
                             fullname: doc.fullname,
                         };
@@ -133,7 +130,7 @@ exports.signup_user = (req, res, next) => {
                         res.status(500).json({
                             status: false,
                             user: null,
-                            message: "Example ID : " + new mongoose.Types.ObjectId(),
+                            message: "",
                             error: err
                         });
                     });
@@ -148,6 +145,7 @@ exports.signup_user = (req, res, next) => {
                 error: err
             });
         });
+
 };
 
 exports.update_user = (req, res, next) => {
