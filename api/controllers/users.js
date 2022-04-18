@@ -1,9 +1,8 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const jwt = require('jsonwebtoken');
 
 const User = require('../models/users');
+const { encrypt, decrypt } = require('../utils/crypto');
 
 
 exports.get_hash = (req, res, next) => {
@@ -64,8 +63,8 @@ exports.get_user = (req, res, next) => {
             const user = {
                 _id: doc._id,
                 id: doc.id,
-                email: doc.email,
-                firstname: doc.firstname,
+                email: decrypt(doc.email),
+                fullname: decrypt(doc.fullname),
             };
             return res.status(200).json({
                 status: true,
@@ -100,8 +99,8 @@ exports.signup_user = (req, res, next) => {
                     user = new User({
                         _id: new mongoose.Types.ObjectId(),
                         id: req.body.id,
-                        email: req.body.email,
-                        fullname: req.body.fullname,
+                        email: encrypt(req.body.email),
+                        fullname: encrypt(req.body.fullname),
                     });
                 } catch (err) {
                     return res.status(400).json({
@@ -112,18 +111,29 @@ exports.signup_user = (req, res, next) => {
                 }
                 user.save()
                     .then(doc => {
-                        const data = {
-                            _id: doc._id,
-                            id: doc.id,
-                            email: doc.email,
-                            fullname: doc.fullname,
-                        };
-                        res.status(201).json({
-                            status: true,
-                            user: data,
-                            message: '',
-                            error: null,
-                        });
+                        User.findById(doc._id)
+                            .exec()
+                            .then(_user => {
+                                const data = {
+                                    _id: _user._id,
+                                    id: _user.id,
+                                    email: decrypt(_user.email),
+                                    fullname: decrypt(_user.fullname),
+                                };
+                                res.status(201).json({
+                                    status: true,
+                                    user: data,
+                                    message: '',
+                                    error: null,
+                                });
+                            })
+                            .catch(err => {
+                                return res.status(500).json({
+                                    status: false,
+                                    message: "Error while creating user.",
+                                    error: err,
+                                });
+                            });
                     })
                     .catch(err => {
                         console.log(err);
@@ -151,8 +161,8 @@ exports.signup_user = (req, res, next) => {
 exports.update_user = (req, res, next) => {
     const _id = req.body._id;
     const user = new User({
-        email: req.body.email,
-        fullname: req.body.fullname,
+        email: encrypt(req.body.email),
+        fullname: encrypt(req.body.fullname),
     });
     User.findByIdAndUpdate(_id, user,(err, result) => {
         if (err) {
