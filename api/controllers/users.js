@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
-const crypto = require('crypto');
 
 const User = require('../models/users');
+const { generateHash } = require("../utils/hash");
 const { encrypt, decrypt } = require('../utils/crypto');
 
 
@@ -11,38 +11,12 @@ exports.get_hash = (req, res, next) => {
         .exec()
         .then(doc => {
             if (doc.length > 0) {
-                let salt;
-                if (doc[0].salt == null) {
-                    salt = crypto.randomBytes(16).toString();
-                    User.findByIdAndUpdate(doc[0]._id, {salt}, (err, result) => {
-                        if (err) {
-                            console.log("Salt is not saved.");
-                            console.log(err);
-                        } else {
-                            console.log(result);
-                        }
-                    });
-                } else {
-                    salt = doc[0].salt;
-                }
-
-                // Implementing pbkdf2 with all its parameters
-                crypto.pbkdf2(String(doc[0]._id), salt + process.env.SALT, 10000, 64, 'sha512', (err, derivedKey) => {
-                    if (err) {
-                        return res.status(500).json({
-                            status: false,
-                            hash: null,
-                            message: "",
-                            error: err,
-                        });
-                    }
-
-                    return res.status(200).json({
-                        status: true,
-                        hash: "0x" + derivedKey.toString('hex'),
-                        message: "",
-                        error: null,
-                    });
+                let hrstart = process.hrtime();
+                return generateHash(doc[0]).then((response) => {
+                    let hrend = process.hrtime(hrstart);
+                    return res.status(200).json({...response, time: (hrend[0] + (hrend[1] / 1000000)).toFixed(4) + "ms"});
+                }).catch(err => {
+                    return res.status(500).json(err);
                 });
 
             } else {
@@ -60,17 +34,20 @@ exports.get_user = (req, res, next) => {
     User.findById(req.params._id)
         .exec()
         .then((doc) => {
+            let hrstart = process.hrtime();
             const user = {
                 _id: doc._id,
                 id: doc.id,
                 email: decrypt(doc.email),
                 fullname: decrypt(doc.fullname),
             };
+            let hrend = process.hrtime(hrstart);
             return res.status(200).json({
                 status: true,
                 user: user,
                 message: '',
                 error: null,
+                time: (hrend[0] + (hrend[1] / 1000000)).toFixed(4)/2 + "ms",
             });
         })
         .catch((err) => {
@@ -94,14 +71,16 @@ exports.signup_user = (req, res, next) => {
                     error: 'User already exists.'
                 });
             } else {
-                let user;
+                let user, hrstart, hrend;
                 try {
+                    hrstart = process.hrtime();
                     user = new User({
                         _id: new mongoose.Types.ObjectId(),
                         id: req.body.id,
                         email: encrypt(req.body.email),
                         fullname: encrypt(req.body.fullname),
                     });
+                    hrend = process.hrtime(hrstart);
                 } catch (err) {
                     return res.status(400).json({
                         status: false,
@@ -125,6 +104,7 @@ exports.signup_user = (req, res, next) => {
                                     user: data,
                                     message: '',
                                     error: null,
+                                    time: (hrend[0] + (hrend[1] / 1000000)).toFixed(4)/2 + "ms",
                                 });
                             })
                             .catch(err => {
@@ -159,11 +139,13 @@ exports.signup_user = (req, res, next) => {
 };
 
 exports.update_user = (req, res, next) => {
-    const _id = req.body._id;
+    const _id = req.params._id;
+    let hrstart = process.hrtime();
     const user = new User({
         email: encrypt(req.body.email),
         fullname: encrypt(req.body.fullname),
     });
+    let hrend = process.hrtime(hrstart);
     User.findByIdAndUpdate(_id, user,(err, result) => {
         if (err) {
             console.log(err);
@@ -177,6 +159,7 @@ exports.update_user = (req, res, next) => {
             status: true,
             message: "Updated.",
             error: null,
+            time: (hrend[0] + (hrend[1] / 1000000)).toFixed(4)/2 + "ms",
         });
     })
 }
